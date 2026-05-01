@@ -9,6 +9,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/spiffe/spire/pkg/server/datastore/sqldriver/awsrds"
+	"github.com/spiffe/spire/pkg/server/datastore/sqldriver/azureentra"
 
 	// gorm postgres `cloudsql` dialect, for GCP Cloud SQL Proxy
 	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/postgres"
@@ -49,6 +50,26 @@ func (p postgresDB) connect(ctx context.Context, cfg *configuration, isReadOnly 
 			return nil, "", false, err
 		}
 		db, errOpen = gorm.Open(awsrds.PostgresDriverName, dsn)
+	case cfg.databaseTypeConfig.AzurePostgres != nil:
+		c, err := pgx.ParseConfig(connString)
+		if err != nil {
+			return nil, "", false, err
+		}
+		if c.Password != "" {
+			return nil, "", false, errors.New("invalid postgres configuration: password should not be set when using Azure Entra authentication")
+		}
+
+		azureConfig := &azureentra.Config{
+			TenantID:   cfg.databaseTypeConfig.AzurePostgres.TenantID,
+			ClientID:   cfg.databaseTypeConfig.AzurePostgres.ClientID,
+			DriverName: azureentra.PostgresDriverName,
+			ConnString: connString,
+		}
+		dsn, err := azureConfig.FormatDSN()
+		if err != nil {
+			return nil, "", false, err
+		}
+		db, errOpen = gorm.Open(azureentra.PostgresDriverName, dsn)
 	default:
 		db, errOpen = gorm.Open("postgres", connString)
 	}

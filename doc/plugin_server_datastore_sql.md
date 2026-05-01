@@ -234,6 +234,32 @@ Settings of the [`mysql`](#database_type--mysql) database type also apply here.
     }
 ```
 
+#### "azure_postgres"
+
+For PostgreSQL databases on Azure using Entra (Azure AD) authentication. The plugin uses `DefaultAzureCredential` from the Azure SDK, which automatically discovers credentials from the environment (managed identity, service principal environment variables, Azure CLI, etc.).
+
+This is the complete list of configuration options under the `database_type` setting when `azure_postgres` is set:
+
+| Configuration | Description                                                                                         | Required | Default                                       |
+|---------------|-----------------------------------------------------------------------------------------------------|----------|-----------------------------------------------|
+| tenant_id     | Azure AD tenant ID. Helps scope credential discovery to a specific tenant.                          | No       | Discovered from environment.                  |
+| client_id     | Client ID of a user-assigned managed identity or application. Useful when multiple identities exist. | No       | Discovered from environment.                  |
+
+Settings of the [`postgres`](#database_type--postgres) database type also apply here. The `connection_string` must not include a password.
+
+##### Sample configuration
+
+```hcl
+    DataStore "sql" {
+        plugin_data {
+            database_type "azure_postgres" {
+                tenant_id = "your-tenant-id"
+            }
+            connection_string = "dbname=spire user=spire-admin@spire-db host=spire-db.postgres.database.azure.com port=5432 sslmode=require"
+        }
+    }
+```
+
 #### Read Only connection
 
 Read Only connection will be used when the optional `ro_connection_string` is set. The formatted string takes the same form as connection_string. This option is not applicable for SQLite3.

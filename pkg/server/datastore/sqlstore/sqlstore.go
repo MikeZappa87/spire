@@ -65,6 +65,9 @@ const (
 	// PostgreSQL database type provided by an AWS service
 	AWSPostgreSQL = "aws_postgres"
 
+	// PostgreSQL database type provided by Azure with Entra (Azure AD) authentication
+	AzurePostgreSQL = "azure_postgres"
+
 	// Maximum size for preallocation in a paginated request
 	maxResultPreallocation = 1000
 
@@ -92,15 +95,27 @@ type configuration struct {
 }
 
 type dbTypeConfig struct {
-	AWSMySQL     *awsConfig `hcl:"aws_mysql" json:"aws_mysql"`
-	AWSPostgres  *awsConfig `hcl:"aws_postgres" json:"aws_postgres"`
-	databaseType string
+	AWSMySQL      *awsConfig   `hcl:"aws_mysql" json:"aws_mysql"`
+	AWSPostgres   *awsConfig   `hcl:"aws_postgres" json:"aws_postgres"`
+	AzurePostgres *azureConfig `hcl:"azure_postgres" json:"azure_postgres"`
+	databaseType  string
 }
 
 type awsConfig struct {
 	Region          string `hcl:"region"`
 	AccessKeyID     string `hcl:"access_key_id"`
 	SecretAccessKey string `hcl:"secret_access_key"`
+}
+
+type azureConfig struct {
+	TenantID string `hcl:"tenant_id"`
+	ClientID string `hcl:"client_id"`
+}
+
+func (a *azureConfig) validate() error {
+	// tenant_id and client_id are optional; DefaultAzureCredential can
+	// discover them from the environment or managed identity.
+	return nil
 }
 
 func (a *awsConfig) validate() error {
@@ -4847,6 +4862,12 @@ func (cfg *configuration) Validate() error {
 		}
 	}
 
+	if cfg.databaseTypeConfig.AzurePostgres != nil {
+		if err := cfg.databaseTypeConfig.AzurePostgres.validate(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -5062,6 +5083,7 @@ func parseDatabaseTypeASTNode(node ast.Node) (*dbTypeConfig, error) {
 	switch databaseType {
 	case AWSMySQL:
 	case AWSPostgreSQL:
+	case AzurePostgreSQL:
 	default:
 		return nil, fmt.Errorf("unknown database type: %s", databaseType)
 	}
@@ -5075,7 +5097,7 @@ func isMySQLDbType(dbType string) bool {
 }
 
 func isPostgresDbType(dbType string) bool {
-	return dbType == PostgreSQL || dbType == AWSPostgreSQL
+	return dbType == PostgreSQL || dbType == AWSPostgreSQL || dbType == AzurePostgreSQL
 }
 
 func isSQLiteDbType(dbType string) bool {
